@@ -8,6 +8,9 @@ from app.workers.packager import generate_package
 from app.orchestrator import approve_idea, run_daily_generation
 from fastapi import BackgroundTasks
 from app.tasks import package_idea_task
+from app.orchestrator import run_agent_cycle
+from app.queue import queue
+from app.jobs import agent_cycle_job
 
 
 from .db import engine, Base, get_db
@@ -18,6 +21,9 @@ app = FastAPI()
 Base.metadata.create_all(bind=engine)
 
 templates = Jinja2Templates(directory="app/templates")
+
+
+
 
 
 @app.get("/")
@@ -57,3 +63,8 @@ def reject(idea_id: int, db: Session = Depends(get_db)):
 def generate(db: Session = Depends(get_db)):
     run_daily_generation(db)
     return {"status": "AI ideas generated"}
+
+@app.get("/agent")
+def run_agent():
+    queue.enqueue(agent_cycle_job)
+    return {"status": "Agent job enqueued"}

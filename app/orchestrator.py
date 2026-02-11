@@ -1,57 +1,66 @@
 from sqlalchemy.orm import Session
 
 from app import models
+from app.agent import PoetryAgent
 from app.workers.ideator import generate_ideas
 from app.workers.packager import generate_package
 from app.logger import logger
 
 
-def run_daily_generation(db: Session):
-    try:
+def build_state_description(db: Session) -> str:
+    approved = db.query(models.Idea).filter(models.Idea.status == "APPROVED").all()
+    proposed = db.query(models.Idea).filter(models.Idea.status == "PROPOSED").all()
+    packaged = db.query(models.Idea).filter(models.Idea.status == "PACKAGED").all()
+
+    return f"""
+Approved ideas: {[i.id for i in approved]}
+Proposed ideas: {[i.id for i in proposed]}
+Packaged ideas: {[i.id for i in packaged]}
+"""
+
+
+def execute_action(db: Session, action: str) -> bool:
+    """
+    Executes agent decision.
+    Returns True if action was executed, False if loop should stop.
+    """
+
+    if action == "generate_ideas":
         generate_ideas(db)
-    except Exception:
-        logger.error("Daily generation failed", exc_info=True)
+        return True
 
-
-def approve_idea(db: Session, idea_id: int) -> bool:
-    """
-    Only marks APPROVED. Returns True if approved, False otherwise.
-    """
-    idea = db.query(models.Idea).filter(models.Idea.id == idea_id).first()
-    if not idea:
+    if action == "package_idea":
+        approved = db.query(models.Idea).filter(models.Idea.status == "APPROVED").all()
+        if approved:
+            generate_package(db, approved[0].id)
+            return True
         return False
 
-    if idea.status not in ["PROPOSED", "CREATED"]:
+    if action == "wait":
+        logger.info("Agent decided to wait.")
         return False
 
-    idea.status = "APPROVED"
-    db.commit()
-    return True
+    logger.warning(f"Unknown action received: {action}")
+    return False
 
 
-def package_idea(db: Session, idea_id: int) -> None:
+def run_agent_cycle(db: Session, max_steps: int = 3):
     """
-    Does the packaging workflow (meant to run in background).
+    Controlled OpenClaw-style reasoning loop.
     """
-    idea = db.query(models.Idea).filter(models.Idea.id == idea_id).first()
-    if not idea:
-        return
 
-    # Idempotency: if already done, do nothing
-    if idea.status == "PACKAGED":
-        return
+    agent = PoetryAgent(db)
 
-    try:
-        idea.status = "PACKAGING"
-        db.commit()
+    for step in range(max_steps):
 
-        generate_package(db, idea_id)
+        state_description = build_state_description(db)
+        decision = agent.think(state_description)
 
-        # generate_package may already set PACKAGED, but we enforce final state
-        idea.status = "PACKAGED"
-        db.commit()
+        action = decision.get("action")
 
-    except Exception:
-        idea.status = "FAILED"
-        db.commit()
-        logger.error("Packaging failed", exc_info=True)
+        logger.info(f"Step {step + 1} decision: {decision}")
+
+        should_continue = execute_action(db, action)
+
+        if not should_continue:
+            break
