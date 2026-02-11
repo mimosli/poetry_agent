@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Poetry Agent</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="5">
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .card {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .btn {
+            padding: 8px 12px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-right: 5px;
+        }
+        .approve { background: #4CAF50; color: white; }
+        .reject { background: #f44336; color: white; }
+    </style>
+</head>
+<body>
+
+<h1>Poetry Agent Dashboard</h1>
+
+{% if ideas %}
+    {% for idea in ideas %}
+        <div class="card">
+            <h3>{{ idea.title }}</h3>
+            <p><strong>Hook:</strong> {{ idea.hook }}</p>
+
+            <p><strong>Status:</strong>
+                {% if idea.status == "PACKAGED" %}
+                    <span style="color: green;">{{ idea.status }}</span>
+                {% elif idea.status == "PACKAGING" %}
+                    <span style="color: orange;">{{ idea.status }}</span>
+                {% elif idea.status == "FAILED" %}
+                    <span style="color: red;">{{ idea.status }}</span>
+                {% else %}
+                    {{ idea.status }}
+                {% endif %}
+            </p>
+
+            {% if idea.status == "PACKAGED" and idea.package %}
+                <p><strong>Folder:</strong> {{ idea.package.folder_path }}</p>
+            {% endif %}
+
+            {% if idea.status == "PROPOSED" %}
+                <a href="/approve/{{ idea.id }}" class="btn approve">Approve</a>
+                <a href="/reject/{{ idea.id }}" class="btn reject">Reject</a>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% else %}
+    <p>No ideas yet.</p>
+{% endif %}
+
+</body>
+</html>
