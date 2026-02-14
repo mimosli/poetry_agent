@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.orchestrator import package_idea
+from app.workers.packager import generate_package
 from app.logger import logger
 
 

@@ -5,7 +5,7 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 from app.workers.ideator import generate_ideas
 from app.workers.packager import generate_package
-from app.orchestrator import approve_idea, run_daily_generation
+from app.orchestrator import run_agent_cycle
 from fastapi import BackgroundTasks
 from app.tasks import package_idea_task
 from app.orchestrator import run_agent_cycle
